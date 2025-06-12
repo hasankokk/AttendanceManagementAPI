@@ -3,6 +3,7 @@ using AttendanceManagementApi.Models.DTOs;
 using AttendanceManagementApi.Models.DTOs.User;
 using AttendanceManagementApi.Models.Entities;
 using Mapster;
+using Microsoft.EntityFrameworkCore;
 
 namespace AttendanceManagementApi.Endpoints;
 
@@ -50,7 +51,8 @@ public static class StudentEndpoints
 
         studentGroup.MapPut("/{id:int}", (int id, UserUpdateDto? dto, AppDbContext context) =>
             {
-                var student = context.Users.Find(id);
+                var student = context.Users.Include(u => u.Classrooms)
+                    .FirstOrDefault(u => u.Id == id);
                 if (student == null)
                     return Results.NotFound("Öğrenci bulunamadı!");
                 if (dto.Role != null && student.Role != Role.Student)
@@ -61,6 +63,24 @@ public static class StudentEndpoints
                 student.PhoneNumber = dto.PhoneNumber == null ? student.PhoneNumber : dto.PhoneNumber;
                 student.Role = dto.Role == null ? student.Role : dto.Role;
                 student.Updated = DateTime.Now;
+                
+                if (dto.ClassroomId != null)
+                {
+                    var userClassroom = student.Classrooms.FirstOrDefault(c => c.Id == dto.ClassroomId);
+                    if (userClassroom != null && dto.DeleteClassroom)
+                        student.Classrooms.Remove(userClassroom);
+
+                    else 
+                    {
+                        if (userClassroom == null && !dto.DeleteClassroom)
+                        {
+                            var classroom = context.Classrooms.FirstOrDefault(c => c.Id == dto.ClassroomId);
+                            if (classroom == null)
+                                return Results.NotFound("Sınıf bulunamadı!");
+                            student.Classrooms.Add(classroom);
+                        }
+                    }
+                }
                 context.SaveChanges();
                 return Results.Ok(new { message = "İşlem başarılı" });
             })

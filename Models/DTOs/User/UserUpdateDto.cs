@@ -15,6 +15,9 @@ public class UserUpdateDto
     public string? Email { get; set; }
     [MaxLength(50)]
     public string? PhoneNumber { get; set; }
+    
+    public int ClassroomId { get; set; }
+    public bool DeleteClassroom { get; set; } = false;
 
     public Role Role { get; set; } = Role.Student;
 }

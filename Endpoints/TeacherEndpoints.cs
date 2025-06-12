@@ -3,6 +3,7 @@ using AttendanceManagementApi.Models.DTOs;
 using AttendanceManagementApi.Models.DTOs.User;
 using AttendanceManagementApi.Models.Entities;
 using Mapster;
+using Microsoft.EntityFrameworkCore;
 
 namespace AttendanceManagementApi.Endpoints;
 
@@ -51,7 +52,8 @@ public static class TeacherEndpoints
 
         teacherGroup.MapPut("/{id:int}", (int id, UserUpdateDto? dto, AppDbContext context) =>
             {
-                var teacher = context.Users.Find(id);
+                var teacher = context.Users.Include(t => t.Classrooms)
+                    .FirstOrDefault(t => t.Id == id);
                 if (teacher == null)
                     return Results.NotFound("Öğretmen bulunamadı!");
                 if (teacher.Role != Role.Teacher)
@@ -62,6 +64,23 @@ public static class TeacherEndpoints
                 teacher.PhoneNumber = dto.PhoneNumber == null ? teacher.PhoneNumber : dto.PhoneNumber;
                 teacher.Role = Role.Teacher;
                 teacher.Updated = DateTime.Now;
+                if (dto.ClassroomId != null)
+                {
+                    var userClassroom = teacher.Classrooms.FirstOrDefault(c => c.Id == dto.ClassroomId);
+                    if (userClassroom != null && dto.DeleteClassroom)
+                        teacher.Classrooms.Remove(userClassroom);
+
+                    else 
+                    {
+                        if (userClassroom == null && !dto.DeleteClassroom)
+                        {
+                            var classroom = context.Classrooms.FirstOrDefault(c => c.Id == dto.ClassroomId);
+                            if (classroom == null)
+                                return Results.NotFound("Sınıf bulunamadı!");
+                            teacher.Classrooms.Add(classroom);
+                        }
+                    }
+                }
                 context.SaveChanges();
                 return Results.Ok(new { message = "İşlem başarılı" });
             })

@@ -2,6 +2,7 @@ using AttendanceManagementApi.Data;
 using AttendanceManagementApi.Models.DTOs;
 using AttendanceManagementApi.Models.DTOs.User;
 using AttendanceManagementApi.Models.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace AttendanceManagementApi.Endpoints;
 
@@ -12,10 +13,10 @@ public static class UserEndpoints
         var userGroup = app.MapGroup("/user").WithTags("Kullanıcı İşlemleri")
             .WithSummary("Kullanıcı Ekleme ve Silme işlemleri burada yapılır.");
         
-        userGroup.MapPost("/", (UserCreateDto? dto, AppDbContext context) => {
+        userGroup.MapPost("/", (int classroomId, UserCreateDto? dto, AppDbContext context) => {
                 if (dto == null)
                     return Results.BadRequest("Öğrenci bilgisi eksik");
-                if (dto.Email == context.Users.FirstOrDefault(x => x.Email == dto.Email)?.Email)
+                if (context.Users.Any(u => u.Email == dto.Email))
                     return Results.BadRequest("E-Posta adresi kullanılıyor!");
                 var user = new User
                 {
@@ -26,8 +27,21 @@ public static class UserEndpoints
                     Role = dto.Role,
                 };
                 context.Users.Add(user);
+                var classroom = context.Classrooms
+                    .Include(u => u.Users)
+                    .FirstOrDefault(c => c.Id == classroomId);
+                if (classroom != null)
+                    classroom.Users.Add(user);
                 context.SaveChanges();
-                return Results.Created($"/user/{user.Id}", user); 
+                var resultDto = new UserCreateDto
+                {
+                    Name = user.Name,
+                    Surname = user.Surname,
+                    Email = user.Email,
+                    PhoneNumber = user.PhoneNumber,
+                    Role = user.Role,
+                };
+                return Results.Created($"/user/{user.Id}", resultDto); 
             })
             .WithSummary("Kullanıcı ekleme işlemi")
             .WithDescription("Kullanıcıyı veritabanına ekleme işlemi burada yapılır.");
