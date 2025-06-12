@@ -21,6 +21,7 @@ app.MapUserEndpoints();
 app.MapStudentEndpoints();
 app.MapTeacherEndpoints();
 app.MapClassroomEndpoints();
+app.MapLessonEndpoints();
 //app.UseHttpsRedirection();
 
 app.Run();
